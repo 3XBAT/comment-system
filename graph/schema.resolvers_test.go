@@ -546,3 +546,100 @@ func TestResolver_GetCommentById(t *testing.T) {
 	}
 }
 
+func TestReseolver_GetPart(t *testing.T) {
+	type mockBehavior func(s *mock_service.MockComment, ctx context.Context, PostId string, ParentId string, limit *int, offset *int) 
+
+	testTable := []struct {
+		name             string
+		PostID           string
+		ParentID         string
+		limit            int
+		offset           int
+		mockBehavior     mockBehavior
+		expectedComments []*model.Comment
+		expectedError    error
+	}{
+		{
+			name:     "OK",
+			PostID:   "92a84a90-140e-4d4c-a05e-e50ecc6216b8",
+			ParentID: "c91ccfc9-e142-4c1c-8a1f-4c1d87fa9b65",
+			limit:    3,
+			offset:   0,
+			mockBehavior: func(s *mock_service.MockComment, ctx context.Context, PostID string, ParentID string, limit *int, offset *int) {
+				s.EXPECT().GetPart(ctx, PostID, ParentID, limit, offset).Return([]*model.Comment{{ID: "92a84a90-140e-4d4c-a05e-e50ecc6216b8"}}, nil)
+			},
+			expectedComments: []*model.Comment{{ID: "92a84a90-140e-4d4c-a05e-e50ecc6216b8"}},
+			expectedError:    nil,
+		},
+		{
+			name:     "OK_without_parentID",
+			PostID:   "92a84a90-140e-4d4c-a05e-e50ecc6216b8",
+			ParentID: "",
+			limit:    3,
+			offset:   0,
+			mockBehavior: func(s *mock_service.MockComment, ctx context.Context, PostID string, ParentID string, limit *int, offset *int) {
+				s.EXPECT().GetPart(ctx, PostID, ParentID, limit, offset).Return([]*model.Comment{{ID:"c91ccfc9-e142-4c1c-8a1f-4c1d87fa9b65"}}, nil)
+			},
+			expectedComments: []*model.Comment{{ID: "c91ccfc9-e142-4c1c-8a1f-4c1d87fa9b65"}},
+			expectedError:    nil,
+		},
+		{
+			name: "wrong PostId",
+			PostID:   "",
+			ParentID: "",
+			limit:    3,
+			offset:   0,
+			mockBehavior: func(s *mock_service.MockComment, ctx context.Context, PostID string, ParentID string, limit *int, offset *int) {
+				s.EXPECT().GetPart(ctx, PostID, ParentID, limit, offset).Return(nil, errors.New("there are no comments with this id in the data storage"))
+			},
+			expectedComments: nil,
+			expectedError:    errors.New("there are no comments with this id in the data storage"),
+		},
+		{
+			name: "negativ limit",
+			PostID:   "",
+			ParentID: "",
+			limit:    -4,
+			offset:   0,
+			mockBehavior: func(s *mock_service.MockComment, ctx context.Context, PostID string, ParentID string, limit *int, offset *int) {
+				s.EXPECT().GetPart(ctx, PostID, ParentID, limit, offset).Return(nil, errors.New("paginations parameters are negative(must be positiv)"))
+			},
+			expectedComments: nil,
+			expectedError:   errors.New("paginations parameters are negative(must be positiv)"),
+		},
+		{
+			name: "negativ offset",
+			PostID:   "",
+			ParentID: "",
+			limit:    3,
+			offset:   -3,
+			mockBehavior: func(s *mock_service.MockComment, ctx context.Context, PostID string, ParentID string, limit *int, offset *int) {
+				s.EXPECT().GetPart(ctx, PostID, ParentID, limit, offset).Return(nil, errors.New("paginations parameters are negative(must be positiv)"))
+			},
+			expectedComments: nil,
+			expectedError:   errors.New("paginations parameters are negative(must be positiv)"),
+		},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+
+			comment := mock_service.NewMockComment(c)
+			ctx := context.Background()
+			limit := testCase.limit
+			offset := testCase.offset
+
+			testCase.mockBehavior(comment, ctx, testCase.PostID, testCase.ParentID, &limit, &offset)
+
+			result, err := comment.GetPart(ctx, testCase.PostID, testCase.ParentID, &limit, &offset)
+
+			if err == nil {
+				assert.Equal(t, testCase.expectedComments, result)
+			} else {
+				assert.Equal(t, testCase.expectedError, err)
+			}
+		})
+	}
+}

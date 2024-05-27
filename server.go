@@ -13,6 +13,8 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/joho/godotenv"
+
+
 	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 )
@@ -22,11 +24,11 @@ const defaultPort = "8080"
 func main() {
 	input := bufio.NewScanner(os.Stdin)
 
-	fmt.Println("Enter type of repository (db/cache)");
+	fmt.Println("Enter type of repository (db/cache)")
 	input.Scan()
 	repoType := input.Text()
 	fmt.Printf("you entered this - %s", repoType)
-	
+
 	if err := input.Err(); err != nil {
 		fmt.Println("Undefined type", err)
 	}
@@ -39,8 +41,6 @@ func main() {
 	if port == "" {
 		port = defaultPort
 	}
-
-	
 
 	var repos *repository.Repository
 
@@ -60,8 +60,21 @@ func main() {
 		repos = repository.NewRepositoryPostgres(db)
 	case "cache":
 		repos = repository.NewRepositoryCache()
+	default:
+		db, err := postgres.NewPostgresDB(postgres.Config{
+			Host:     "localhost",
+			Port:     "5435",
+			Username: "postgres",
+			Password: "qwerty",
+			DBName:   "commentDb",
+			SSLMode:  "disable",
+		})
+		if err != nil {
+			logrus.Fatalf(fmt.Sprintf("failed to initialized db:%s", err.Error()))
+		}
+		repos = repository.NewRepositoryPostgres(db)
 	}
-	
+
 	service := service.NewService(repos)
 	resolver := graph.NewResolver(service)
 

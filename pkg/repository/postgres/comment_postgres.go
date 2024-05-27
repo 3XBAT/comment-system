@@ -116,7 +116,7 @@ func (r *CommentPostgres) GetPart(ctx context.Context, postID string, parentID s
 		rows, err := r.db.Queryx(query, postID, parentID, *limit, *offset)
 		if err != nil {
 			logrus.Errorf("failed receive data from database:%s", err.Error())
-			return nil, err
+			return nil, errors.New("there are no comments with this id in the data storage")
 		}
 
 		defer rows.Close()
